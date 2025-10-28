@@ -1,0 +1,334 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>英語本文・違い探しゲーム｜2分チャレンジ</title>
+  <style>
+    :root{
+      --bg: linear-gradient(135deg,#ffecd2 0%, #fcb69f 100%);
+      --card: #ffffffEE;
+      --ink: #222;
+      --accent: #ff4d6d;
+      --accent-2:#845ef7;
+      --good:#2f9e44;
+      --bad:#e03131;
+      --muted:#6b7280;
+      --shadow: 0 10px 30px rgba(0,0,0,.12);
+      --radius: 18px;
+    }
+    *{box-sizing:border-box}
+    html,body{height:100%}
+    body{
+      margin:0; font-family: -apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Helvetica,Arial,"Hiragino Kaku Gothic ProN","Yu Gothic","Noto Sans JP",sans-serif; color:var(--ink); background:var(--bg);
+      display:flex; align-items:stretch; justify-content:center;
+    }
+    .wrap{width:min(1100px,96%); padding:18px 14px 28px;}
+    header{ display:flex; gap:14px; align-items:center; justify-content:space-between; flex-wrap:wrap; margin-bottom:12px; }
+    .title{ display:flex; align-items:center; gap:10px; font-weight:800; font-size:clamp(18px,3.2vw,28px); }
+    .title .logo{width:40px; height:40px; border-radius:12px; background: radial-gradient( circle at 30% 20%, #fff 0 30%, transparent 31%), linear-gradient(135deg,#ff5d8f,#845ef7); box-shadow: var(--shadow); position:relative}
+    .title .logo:after{content:"🎯"; position:absolute; inset:0; display:grid; place-items:center; font-size:22px}
+
+    .controls{display:flex; gap:10px; flex-wrap:wrap;}
+    button{ border:none; padding:10px 14px; border-radius:12px; font-weight:700; cursor:pointer; box-shadow: var(--shadow);
+      background: linear-gradient(135deg,var(--accent),#ff9aa2); color:#fff; transition:.2s transform ease; }
+    button.secondary{ background: linear-gradient(135deg,#6c757d,#99a2ad); }
+    button.flat{ background:#fff; color:#333 }
+    button:active{ transform: translateY(1px) }
+    .pill{ padding:8px 12px; border-radius:999px; background:#fff; box-shadow: var(--shadow); font-weight:700 }
+
+    .grid{ display:grid; grid-template-columns: 1fr; gap:14px; }
+
+    .card{ background:var(--card); border-radius: var(--radius); box-shadow: var(--shadow); padding:16px 18px; }
+    .card h2{ margin:4px 0 8px; font-size:18px }
+
+    .muted{ color:var(--muted); }
+    .big{ font-size:14px; line-height:1.9 }
+
+    .word{ padding:1px 3px; border-radius:8px; transition: background .15s ease, transform .05s ease; cursor:pointer; display:inline-block }
+    .word:hover{ background: rgba(255,77,109,.12) }
+    .word.clicked{ outline: 2px dashed rgba(0,0,0,.12) }
+    .word.correct{ background: rgba(47,158,68,.18) }
+    .word.wrong{ background: rgba(224,49,49,.18) }
+
+    .score{ color:var(--good); font-weight:800 }
+    .score.neg{ color:var(--bad) }
+    .time{ font-weight:800; color:var(--accent-2) }
+
+    .toast{ position: fixed; left: 50%; top: 22px; transform: translateX(-50%); background:#fff; box-shadow: var(--shadow); padding:12px 14px; border-radius:12px; display:flex; gap:10px; align-items:flex-start; z-index: 30; max-width:min(620px,92%); }
+    .toast.hidden{ display:none }
+    .toast strong{ display:block }
+
+    .modal{ position: fixed; inset:0; display:none; align-items:center; justify-content:center; z-index:40; }
+    .modal .scrim{ position:absolute; inset:0; background: rgba(0,0,0,.25); }
+    .modal .panel{ position:relative; background:#fff; border-radius:18px; box-shadow: var(--shadow); width:min(800px,92%); max-height:80vh; overflow:auto; padding:18px; }
+    .modal .panel h3{ margin:4px 0 12px; }
+    .modal.show{ display:flex }
+    .answers{ font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace; font-size:13px; }
+
+    .result{ position: fixed; inset:0; display:none; align-items:center; justify-content:center; z-index:50; }
+    .result .scrim{ position:absolute; inset:0; background: rgba(0,0,0,.5); }
+    .result .board{ position:relative; background:#fff; border-radius:22px; box-shadow: var(--shadow); width:min(720px,92%); padding:28px; text-align:center; }
+    .result .scorebig{ font-size: clamp(48px, 8vw, 96px); font-weight: 900; color: var(--accent-2); margin: 8px 0 4px; }
+    .result .sub{ color:#555; margin-bottom:10px }
+
+    .footer{ text-align:center; margin-top:16px; color:#333; opacity:.9 }
+    .badge{ display:inline-block; padding:2px 8px; border-radius:999px; font-size:12px; background:#fff; margin-left:6px; box-shadow: var(--shadow) }
+  </style>
+</head>
+<body>
+  <div class="wrap">
+    <header>
+      <div class="title"><div class="logo" aria-hidden="true"></div>英語本文・違い探しゲーム <span class="badge">2分チャレンジ</span></div>
+      <div class="controls">
+        <button id="startBtn" aria-label="ゲーム開始">▶︎ スタート／リセット</button>
+        <button id="newSetBtn" class="flat" aria-label="作り直し">🔁 作り直し</button>
+        <button id="hintBtn" class="secondary" aria-label="ヒント（和訳）">💡 ヒント（和訳）</button>
+        <button id="giveupBtn" class="secondary" aria-label="ギブアップ">⏹ ギブアップ</button>
+        <span class="pill"><span class="time" id="time">120</span>s</span>
+        <span class="pill">スコア：<span id="score" class="score">0</span></span>
+        <span class="pill">残り違い：<span id="left">5</span></span>
+      </div>
+    </header>
+
+    <section class="grid">
+      <article class="card" aria-live="polite">
+        <h2>違うとこを探せ！ <span class="muted">（全5箇所／元の本文は非表示）</span></h2>
+        <p id="modified" class="big" role="group" aria-label="変更された本文"></p>
+        <p class="muted">※ 単複のひっかけは無し。前置詞・助動詞の原形・受け身・冠詞・綴りの区別中心やで。</p>
+      </article>
+    </section>
+
+    <div id="toast" class="toast hidden" role="alert">
+      <div id="toastEmoji" style="font-size:20px">🎉</div>
+      <div>
+        <strong id="toastTitle">やったね！</strong>
+        <div id="toastBody">解説がここに入ります。</div>
+      </div>
+    </div>
+
+    <div id="modal" class="modal" aria-modal="true" role="dialog" aria-labelledby="modalTitle">
+      <div class="scrim"></div>
+      <div class="panel">
+        <h3 id="modalTitle">答えと解説</h3>
+        <div id="modalBody" class="answers"></div>
+        <div style="display:flex; gap:8px; justify-content:flex-end; margin-top:12px;">
+          <button id="closeModal" class="flat">閉じる</button>
+        </div>
+      </div>
+    </div>
+
+    <div id="result" class="result" aria-modal="true" role="dialog" aria-labelledby="resultTitle">
+      <div class="scrim"></div>
+      <div class="board">
+        <div id="resultTitle" class="sub">2分チャレンジ 結果</div>
+        <div id="resultScore" class="scorebig">0</div>
+        <div class="sub">合計スコア</div>
+        <div style="margin-top:10px; display:flex; gap:8px; justify-content:center; flex-wrap:wrap;">
+          <button id="closeResult" class="flat">閉じる</button>
+          <button id="restartBtn">もう一回！</button>
+        </div>
+      </div>
+    </div>
+
+    <p class="footer">デザイン：ポップ＆勉強はかどるやつ。作問は高校生が引っかかりやすいポイントに厳選。</p>
+  </div>
+
+<script>
+// ====== 元の本文（表示はしない） ======
+const SOURCE_TEXT = `What do you see in this picture? A robot is picking tomatoes. With cameras and sensors, it harvests only ripe tomatoes. This is an example of “smart farming.” It uses “smart” technology such as robots and ICT. Let’s look at other examples. Some farmers in Chiba monitor their fields with their smartphones. They can collect data and check the condition of their crops from home. On some Hokkaido farms, drones are used to spray fertilizer on the rice fields.`;
+
+// ====== 和訳（ヒント表示用） ======
+const JP_TEXT = `この絵で何が見える？ ロボットがトマトを収穫している。 カメラとセンサーを使って、熟したトマトだけを収穫する。 これは「スマート農業」の一例や。 ロボットやICTなどの“スマート”な技術を使ってるんや。 ほかの例も見てみよか。 千葉の一部の農家は、スマホで畑を見守ってる。 家にいながらデータを集めて、作物の状態を確認できるねん。 北海道のいくつかの農場では、ドローンで水田に肥料を散布してるで。`;
+
+function tokenize(text){ return text.split(/\s+/); }
+const originalWords = tokenize(SOURCE_TEXT);
+
+// ====== 置換候補（単複・可算/不可算は除外） ======
+const BANK = [
+  {target:"in", wrong:"on", reason:"写真・絵の中は in を使う。on this picture は『この写真の上に』のニュアンス。"},
+  {target:"picking", wrong:"pick", reason:"進行形は be + V-ing。『is picking』が正解や。"},
+  {target:"an", wrong:"a", reason:"母音の音の前は an。『an example』が正しい。"},
+  {target:"their", wrong:"there", reason:"their（彼らの）と there（そこ）は綴りも意味も別もんやで。"},
+  {target:"collect", wrong:"collects", reason:"can の後は動詞の原形。『can collect』にするで。"},
+  {target:"check", wrong:"checks", reason:"can の後は原形。『can check』が正解。"},
+  {target:"used", wrong:"use", reason:"『are used to + 動詞の原形』の受け身。use にすると文法崩れる。"},
+  {target:"spray", wrong:"spraying", reason:"『be used to + 動詞の原形』がセット。to の後は原形や。"},
+  {target:"the", wrong:"a", reason:"『the rice fields』は特定の田んぼ。a にすると『ある一つの』になって不自然。"}
+];
+
+let timerId = null;
+let timeLeft = 120;
+let score = 0;
+let replacements = []; // {index, from, to, reason}
+let found = new Set();
+let started = false; // スタート前は問題未表示
+let ended = false;   // 時間切れ後は操作無効
+
+const els = {
+  modified: document.getElementById('modified'),
+  time: document.getElementById('time'),
+  score: document.getElementById('score'),
+  left: document.getElementById('left'),
+  start: document.getElementById('startBtn'),
+  newSet: document.getElementById('newSetBtn'),
+  hint: document.getElementById('hintBtn'),
+  giveup: document.getElementById('giveupBtn'),
+  toast: document.getElementById('toast'),
+  toastTitle: document.getElementById('toastTitle'),
+  toastBody: document.getElementById('toastBody'),
+  toastEmoji: document.getElementById('toastEmoji'),
+  modal: document.getElementById('modal'),
+  modalBody: document.getElementById('modalBody'),
+  closeModal: document.getElementById('closeModal'),
+  result: document.getElementById('result'),
+  resultScore: document.getElementById('resultScore'),
+  closeResult: document.getElementById('closeResult'),
+  restart: document.getElementById('restartBtn'),
+};
+
+function renderModified(){
+  els.modified.innerHTML = '';
+  const words = buildModified();
+  words.forEach((w, i)=>{
+    const span = document.createElement('span');
+    span.className = 'word';
+    span.textContent = w + (i < words.length-1 ? ' ' : '');
+    span.dataset.index = i;
+    span.addEventListener('click', onWordClick);
+    els.modified.appendChild(span);
+  });
+}
+
+function sampleFive(){
+  const valid = BANK.filter(b => originalWords.includes(b.target));
+  for(let i=valid.length-1;i>0;i--){ const j=Math.floor(Math.random()*(i+1)); [valid[i],valid[j]]=[valid[j],valid[i]]; }
+  const picks = valid.slice(0,5);
+  const taken = new Set();
+  replacements = picks.map(b => {
+    let idx = originalWords.findIndex((w, i)=> w===b.target && !taken.has(i));
+    if(idx===-1){ idx = originalWords.indexOf(b.target); }
+    taken.add(idx);
+    return { index: idx, from: b.target, to: b.wrong, reason: b.reason };
+  });
+}
+
+function buildModified(){
+  const words = [...originalWords];
+  for(const r of replacements){ words[r.index] = r.to; }
+  return words;
+}
+
+function updateStats(){
+  els.score.textContent = score;
+  els.score.className = 'score' + (score < 0 ? ' neg' : '');
+  const left = 5 - found.size;
+  els.left.textContent = left;
+}
+
+function toast(title, body, good=true){
+  els.toastTitle.textContent = title;
+  els.toastBody.textContent = body;
+  els.toastEmoji.textContent = good ? '✨' : '🧐';
+  els.toast.classList.remove('hidden');
+  clearTimeout(els.toast._t);
+  els.toast._t = setTimeout(()=> els.toast.classList.add('hidden'), 2600);
+}
+
+function hintFromRemaining(){
+  const remaining = replacements.filter(r=> !found.has(r.index));
+  if(remaining.length===0) return '全部クリア！作り直しで次いこ！';
+  const r = remaining[Math.floor(Math.random()*remaining.length)];
+  return `ヒント：${r.reason}`;
+}
+
+function showAnswers(){
+  if(!started || replacements.length===0){
+    toast('まだ始まってないで','スタート→解く→ギブアップで答え表示やで。', false);
+    return;
+  }
+  let html = '<ol>';
+  for(const r of replacements){
+    const isFound = found.has(r.index);
+    html += `<li>${isFound ? '✅' : '❌'} 「${r.from} → ${r.to}」は誤り。正しくは『${r.from}』やで。理由：${r.reason}</li>`;
+  }
+  html += '</ol>';
+  els.modalBody.innerHTML = html;
+  els.modal.classList.add('show');
+}
+
+function onWordClick(e){
+  if(!started || ended) { return; }
+  if(timeLeft<=0) return;
+  const idx = Number(e.currentTarget.dataset.index);
+  const r = replacements.find(x=>x.index===idx);
+  e.currentTarget.classList.add('clicked');
+  if(r && !found.has(idx)){
+    found.add(idx);
+    e.currentTarget.classList.add('correct');
+    score += 1;
+    toast('正解！+1', `「${r.from} → ${r.to}」は間違い。理由：${r.reason}`, true);
+  }else{
+    e.currentTarget.classList.add('wrong');
+    score -= 1;
+    toast('惜しい −1', hintFromRemaining(), false);
+  }
+  updateStats();
+  if(found.size===5){
+    // ラウンドクリア：タイマーは止めず、次の問題へ
+    toast('コンプリート！', '作り直しせんでも次のセットに入ったで！', true);
+    nextRound();
+  }
+}
+
+function nextRound(){
+  found.clear();
+  updateStats();
+  sampleFive();
+  renderModified();
+}
+
+function tick(){
+  timeLeft -= 1;
+  els.time.textContent = timeLeft;
+  if(timeLeft<=0){ timeUp(); }
+}
+
+function start(){
+  clearInterval(timerId);
+  timeLeft = 120; score = 0; found.clear(); ended = false; started = true;
+  els.time.textContent = timeLeft; updateStats();
+  sampleFive(); renderModified();
+  timerId = setInterval(tick, 1000);
+  els.toast.classList.add('hidden');
+}
+
+function newSet(){
+  if(!started || ended){ toast('まずはスタート！','先にスタートボタンを押してな。'); return; }
+  nextRound();
+  toast('新しい問題！', '5箇所入れ替えたで。続行や！');
+}
+
+function timeUp(){
+  ended = true;
+  clearInterval(timerId);
+  els.resultScore.textContent = String(score);
+  document.getElementById('result').style.display = 'flex';
+}
+
+// ボタン
+els.start.addEventListener('click', start);
+els.newSet.addEventListener('click', newSet);
+els.hint.addEventListener('click', ()=>{ toast('和訳ヒント', JP_TEXT, true); });
+els.giveup.addEventListener('click', ()=>{ showAnswers(); });
+els.closeModal.addEventListener('click', ()=> els.modal.classList.remove('show'));
+document.querySelector('#modal .scrim').addEventListener('click', ()=> els.modal.classList.remove('show'));
+els.closeResult.addEventListener('click', ()=> document.getElementById('result').style.display = 'none');
+els.restart.addEventListener('click', ()=>{ document.getElementById('result').style.display = 'none'; start(); });
+
+// 初期表示：問題は出さない（スタートまで空）
+updateStats();
+setTimeout(()=> toast('準備OK？', 'スタートで2分カウント開始。作り直しせずに5問見つけたら自動で次セットやで！'), 500);
+</script>
+</body>
+</html>
